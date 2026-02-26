@@ -13,7 +13,9 @@ TECH_DICTIONARY = [
     "saas", "ecommerce", "blockchain", "web3", "tailwind", "bootstrap",
     "python", "javascript", "typescript", "java", "go", "rust", "c#",
     "next.js", "nuxt", "svelte", "graphql", "rest api", "microservice",
-    "electron", "flutter", "react native", "swift", "kotlin"
+    "electron", "flutter", "react native", "swift", "kotlin", "arduino", "esp32",
+    "embedded", "iot", "opencv", "scikit-learn", "numpy", "pandas", "pytorch",
+    "php", "laravel", "symfony", "codeigniter", "wordpress"
 ]
 
 NICHES = {
@@ -36,47 +38,45 @@ def fetch_github_repo_data(github_url):
     Fetch public GitHub repo data (README + languages) via GitHub API.
     Returns a dict with 'readme', 'languages', 'description', 'stars'.
     """
+    import os
+    token = os.environ.get('GITHUB_TOKEN')
+    headers = {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'MarketplaceAI'}
+    if token:
+        headers['Authorization'] = f'token {token}'
+
     try:
-        # Extract owner/repo from URL
+        # Improved regex to handle trailing slashes and common variants
         match = re.search(r'github\.com/([^/]+)/([^/\s?#]+)', github_url)
         if not match:
             return None
-        owner, repo = match.group(1), match.group(2).rstrip('.git')
-
+        owner, repo = match.group(1), match.group(2).rstrip('.git').rstrip('/')
+        
         result = {'readme': '', 'languages': [], 'description': '', 'stars': 0, 'repo_name': repo}
 
-        # Fetch repo info
+        # Fetch repo info - THIS IS MANDATORY for success
         try:
-            req = urllib.request.Request(
-                f'https://api.github.com/repos/{owner}/{repo}',
-                headers={'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'MarketplaceAI'}
-            )
+            req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}', headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
                 result['description'] = data.get('description', '') or ''
                 result['stars'] = data.get('stargazers_count', 0)
         except Exception:
-            pass
+            # If we can't get basic info, the URL might be wrong or we are hard rate-limited
+            return None
 
         # Fetch README
         try:
-            req = urllib.request.Request(
-                f'https://api.github.com/repos/{owner}/{repo}/readme',
-                headers={'Accept': 'application/vnd.github.v3.raw', 'User-Agent': 'MarketplaceAI'}
-            )
+            req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/readme', 
+                                         headers={**headers, 'Accept': 'application/vnd.github.v3.raw'})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 readme_text = resp.read().decode('utf-8', errors='ignore')
-                # Take first 3000 chars for analysis (enough for NLP)
-                result['readme'] = readme_text[:3000]
+                result['readme'] = readme_text[:5000] # Increased limit
         except Exception:
             pass
 
         # Fetch languages
         try:
-            req = urllib.request.Request(
-                f'https://api.github.com/repos/{owner}/{repo}/languages',
-                headers={'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'MarketplaceAI'}
-            )
+            req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/languages', headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 langs = json.loads(resp.read().decode())
                 result['languages'] = list(langs.keys())
@@ -95,7 +95,7 @@ def generate_description_from_github(repo_data):
     parts = []
     
     if repo_data.get('description'):
-        parts.append(repo_data['description'])
+        parts.append(f"### Short Description\n{repo_data['description']}")
     
     if repo_data.get('readme'):
         # Clean markdown syntax for a cleaner description
@@ -110,17 +110,21 @@ def generate_description_from_github(repo_data):
         
         # Take the first meaningful paragraphs
         paragraphs = [p.strip() for p in readme.split('\n\n') if len(p.strip()) > 30]
-        summary = ' '.join(paragraphs[:4])[:1500]
+        summary = '\n\n'.join(paragraphs[:4])[:1500]
         if summary:
-            parts.append(summary)
+            parts.append(f"### Project Overview\n{summary}")
     
+    tech_info = []
     if repo_data.get('languages'):
-        parts.append(f"Built with: {', '.join(repo_data['languages'])}.")
+        tech_info.append(f"Built with: {', '.join(repo_data['languages'])}")
     
     if repo_data.get('stars') and repo_data['stars'] > 0:
-        parts.append(f"GitHub Stars: {repo_data['stars']}.")
+        tech_info.append(f"GitHub Stars: {repo_data['stars']}")
     
-    return ' '.join(parts) if parts else "GitHub repository analysis completed."
+    if tech_info:
+        parts.append("### Technical Specs\n" + "\n".join(tech_info))
+    
+    return '\n\n'.join(parts) if parts else "GitHub repository successfully linked."
 
 
 # ─────────── Core Analysis Functions ───────────
@@ -133,7 +137,9 @@ def analyze_project(description, tech_stack):
     tags = extract_tags(text, blob)
     complexity = calculate_complexity(text, blob)
     niche_data = predict_revenue_potential(text)
-    health = calculate_health_score(description, tags, complexity)
+    
+    health_score, breakdown = calculate_health_score(description, tags, complexity)
+    revenue_range = calculate_revenue_range(niche_data['name'], niche_data['stars'], complexity)
     
     insight = generate_ai_insight(niche_data['name'], complexity, tags)
     suggestion = generate_suggestion(text, tags)
@@ -143,7 +149,9 @@ def analyze_project(description, tech_stack):
         "complexity_score": complexity,
         "niche": niche_data['name'],
         "potential_star": niche_data['stars'],
-        "health_score": health,
+        "health_score": health_score,
+        "health_breakdown": json.dumps(breakdown),
+        "revenue_estimate": revenue_range,
         "insight_comment": insight,
         "suggestion": suggestion
     }
@@ -192,19 +200,53 @@ def predict_revenue_potential(text):
         stars = 2
     return {"name": best_niche, "stars": stars}
 
+def calculate_revenue_range(niche, stars, complexity):
+    """Predicts a dollar range based on market demand."""
+    base = 100
+    if niche == "SaaS": base = 500
+    elif niche == "Fintech": base = 800
+    elif niche == "AI/ML": base = 1000
+    elif niche == "E-commerce": base = 300
+    
+    multiplier = stars * 1.5
+    if complexity == "Advanced": multiplier *= 2
+    elif complexity == "Intermediate": multiplier *= 1.3
+    
+    min_val = int(base * multiplier)
+    max_val = int(min_val * 2.5)
+    
+    # Round to nice numbers
+    min_val = (min_val // 50) * 50
+    max_val = (max_val // 100) * 100
+    
+    return f"${min_val:,} - ${max_val:,} / mo"
+
 def calculate_health_score(description, tags, complexity):
-    """Project Health metric."""
-    score = 40
-    if len(description.split()) > 100:
-        score += 20
-    elif len(description.split()) > 30:
-        score += 10
-    score += min(20, len(tags) * 4)
-    if complexity == "Intermediate":
-        score += 10
-    elif complexity == "Advanced":
-        score += 20
-    return min(100, score)
+    """Detailed Project Health metric."""
+    breakdown = {
+        "documentation": 0,
+        "stack_modernity": 0,
+        "complexity_depth": 0
+    }
+    
+    # Doc Score
+    words = len(description.split())
+    if words > 150: breakdown["documentation"] = 100
+    elif words > 80: breakdown["documentation"] = 80
+    elif words > 30: breakdown["documentation"] = 50
+    else: breakdown["documentation"] = 20
+    
+    # Stack Score
+    stack_score = min(100, len(tags) * 15)
+    breakdown["stack_modernity"] = stack_score
+    
+    # Depth Score
+    if complexity == "Advanced": breakdown["complexity_depth"] = 100
+    elif complexity == "Intermediate": breakdown["complexity_depth"] = 70
+    else: breakdown["complexity_depth"] = 40
+    
+    avg_score = sum(breakdown.values()) // 3
+    return avg_score, breakdown
 
 def generate_ai_insight(niche, complexity, tags):
     """Dynamic comment for Insight Box."""

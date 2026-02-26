@@ -58,6 +58,8 @@ class AIAnalysis(db.Model):
     niche = db.Column(db.String(100))
     potential_star = db.Column(db.Integer, default=1)
     health_score = db.Column(db.Integer, default=0)
+    health_breakdown = db.Column(db.Text) # JSON string: {"docs": 80, "code": 70, ...}
+    revenue_estimate = db.Column(db.String(100)) # e.g. "$500 - $1,500 / mo"
     insight_comment = db.Column(db.Text)
     suggestion = db.Column(db.Text)
 

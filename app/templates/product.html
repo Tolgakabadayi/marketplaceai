@@ -33,7 +33,11 @@
             <h1 class="text-4xl md:text-6xl font-extrabold text-white tracking-tighter">{{ project.title }}</h1>
         </div>
         <div class="flex flex-col items-end">
-            <div class="text-4xl font-black text-cyan-400 mb-4">$ {{ "{:,.2f}".format(project.price) }}</div>
+            <div class="text-4xl font-black text-cyan-400 mb-2">$ {{ "{:,.2f}".format(project.price) }}</div>
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+                Est. Revenue: <span class="text-emerald-400">{{ project.ai_analysis.revenue_estimate if
+                    project.ai_analysis else 'Analyzing market...' }}</span>
+            </div>
             {% if current_user.is_authenticated and project.user_id != current_user.id %}
             <button onclick="openContactModal()"
                 class="px-8 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-cyan-400 transition-colors neon-shadow-cyan">
@@ -57,7 +61,7 @@
             <!-- Image Gallery -->
             {% set project_images = project.get_images() %}
             {% if project_images %}
-            <div class="glass-panel p-2 rounded-3xl overflow-hidden border border-white/5">
+            <div id="section-gallery" class="glass-panel p-2 rounded-3xl overflow-hidden border border-white/5">
                 <div class="aspect-video relative overflow-hidden rounded-2xl bg-slate-900">
                     <img id="main-image" src="{{ url_for('static', filename='uploads/' + project_images[0]) }}"
                         class="w-full h-full object-cover transition-opacity duration-500">
@@ -75,7 +79,8 @@
             {% endif %}
 
             <!-- AI Insight Box -->
-            <div class="glass-panel p-8 rounded-3xl border-l-[6px] border-cyan-400 relative overflow-hidden group">
+            <div id="section-ai-analysis"
+                class="glass-panel p-8 rounded-3xl border-l-[6px] border-cyan-400 relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl"></div>
                 <h3
                     class="text-cyan-400 font-extrabold text-sm uppercase tracking-widest mb-4 flex items-center space-x-2">
@@ -99,10 +104,47 @@
                     {% endfor %}
                     {% endif %}
                 </div>
+
+                <!-- Detailed Metrics Breakdown -->
+                {% if project.ai_analysis and project.ai_analysis.health_breakdown %}
+                {% set breakdown = project.ai_analysis.health_breakdown|from_json %}
+                <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-white/5">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-slate-500 font-bold uppercase">Documentation</span>
+                            <span class="text-xs text-white font-mono">{{ breakdown.documentation }}%</span>
+                        </div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full">
+                            <div class="h-full bg-cyan-500 rounded-full" style="width: {{ breakdown.documentation }}%">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-slate-500 font-bold uppercase">Stack Modernity</span>
+                            <span class="text-xs text-white font-mono">{{ breakdown.stack_modernity }}%</span>
+                        </div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full">
+                            <div class="h-full bg-indigo-500 rounded-full"
+                                style="width: {{ breakdown.stack_modernity }}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-slate-500 font-bold uppercase">Complexity depth</span>
+                            <span class="text-xs text-white font-mono">{{ breakdown.complexity_depth }}%</span>
+                        </div>
+                        <div class="w-full h-1 bg-slate-800 rounded-full">
+                            <div class="h-full bg-purple-500 rounded-full"
+                                style="width: {{ breakdown.complexity_depth }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Description -->
-            <div class="space-y-6">
+            <div id="section-description" class="space-y-6">
                 <h3 class="text-2xl font-bold text-white border-b border-slate-800 pb-4">Project Overview</h3>
                 <div class="text-slate-400 leading-relaxed space-y-4 whitespace-pre-line">
                     {{ project.description }}
@@ -110,25 +152,26 @@
             </div>
 
             <!-- Tech Stack Orbit -->
-            <div class="py-10">
+            <div id="section-tech-stack" class="py-10">
                 <h3 class="text-2xl font-bold text-white mb-10 text-center">Tech Stack Orbit</h3>
-                <div class="relative h-96 w-full flex items-center justify-center">
+                <div class="relative h-96 w-full flex items-center justify-center overflow-hidden">
                     <!-- Central Node -->
                     <div
-                        class="w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 flex items-center justify-center z-10 neon-shadow-cyan">
+                        class="w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 flex items-center justify-center z-10 neon-shadow-cyan relative">
                         <svg class="w-12 h-12 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
                         </svg>
                     </div>
 
-                    <!-- Orbiting Nodes (Simplified Visual) -->
-                    {% if project.tech_stack %}
-                    {% set techs = project.tech_stack.split(',') %}
+                    <!-- Orbiting Nodes -->
+                    {% set techs = project.tech_stack.split(',') if project.tech_stack else
+                    (project.ai_analysis.tags.split(',') if project.ai_analysis and project.ai_analysis.tags else []) %}
+                    {% if techs %}
                     {% for tech in techs[:6] %}
-                    <div class="absolute orbit-node" style="--d: {{ loop.index * 60 }}deg; --r: 140px;">
+                    <div class="absolute w-full h-full flex items-center justify-center animate-orbit-{{ loop.index }}">
                         <div
-                            class="glass-panel px-4 py-2 rounded-xl border border-indigo-400/30 text-xs font-bold text-indigo-300 transform -rotate-{{ loop.index * 60 }}">
+                            class="glass-panel px-4 py-2 rounded-xl border border-indigo-400/30 text-xs font-bold text-indigo-300 translate-x-32 md:translate-x-40">
                             {{ tech.strip() }}
                         </div>
                     </div>
@@ -137,7 +180,7 @@
 
                     <!-- Orbit Path -->
                     <div
-                        class="absolute w-[280px] h-[280px] rounded-full border border-white/5 border-dashed animate-spin-slow">
+                        class="absolute w-64 h-64 md:w-80 md:h-80 rounded-full border border-white/5 border-dashed animate-spin-slow">
                     </div>
                 </div>
             </div>
@@ -233,13 +276,6 @@
 </div>
 
 <style>
-    .orbit-node {
-        transform-origin: center;
-        --d: 0deg;
-        --r: 100px;
-        transform: translate(calc(var(--r) * cos(var(--d))), calc(var(--r) * sin(var(--d))));
-    }
-
     @keyframes spin-slow {
         from {
             transform: rotate(0deg);
@@ -253,19 +289,79 @@
     .animate-spin-slow {
         animation: spin-slow 15s linear infinite;
     }
+
+        {
+        % for i in range(1, 7) %
+    }
+
+    @keyframes orbit- {
+            {
+            i
+        }
+    }
+
+        {
+        from {
+            transform: rotate({
+                    {
+                    (i-1) * 60
+                }
+            }
+
+            deg);
+    }
+
+    to {
+        transform: rotate({
+                {
+                (i-1) * 60 + 360
+            }
+        }
+
+        deg);
+    }
+    }
+
+    .animate-orbit- {
+            {
+            i
+        }
+    }
+
+        {
+        animation: orbit- {
+                {
+                i
+            }
+        }
+
+            {
+                {
+                10+i * 2
+            }
+        }
+
+        s linear infinite;
+    }
+
+        {
+        % endfor %
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
     function openContactModal() {
-        document.getElementById('contact-modal').classList.remove('hidden');
-        document.getElementById('contact-modal').classList.add('flex');
+        const modal = document.getElementById('contact-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
 
     function closeContactModal() {
-        document.getElementById('contact-modal').classList.add('hidden');
-        document.getElementById('contact-modal').classList.remove('flex');
+        const modal = document.getElementById('contact-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
 
     document.getElementById('contact-form').addEventListener('submit', async (e) => {
@@ -304,6 +400,38 @@
         } finally {
             submitBtn.disabled = false;
         }
+    });
+
+    // AI Heatmap Tracking
+    const trackSections = ['section-gallery', 'section-ai-analysis', 'section-description', 'section-tech-stack'];
+    const observed = new Set();
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !observed.has(entry.target.id)) {
+                // Track interest when section stays in view for 2 seconds
+                setTimeout(() => {
+                    const rect = entry.target.getBoundingClientRect();
+                    const inView = rect.top < window.innerHeight && rect.bottom >= 0;
+                    if (inView) {
+                        fetch('/api/track/heatmap', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                project_id: {{ project.id }},
+                            section: entry.target.id.replace('section-', '')
+                            })
+            }).catch(e => console.error('Heatmap track failed', e));
+        observed.add(entry.target.id);
+    }
+                }, 2000);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    trackSections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el);
     });
 
     // Handle modal close on outside click

@@ -26,7 +26,18 @@ def index():
 
 @bp.route('/listings')
 def listings():
-    projects = Project.query.all()
+    complexity_filters = request.args.getlist('complexity')
+    niche_filters = request.args.getlist('niche')
+    
+    query = Project.query.join(AIAnalysis)
+    
+    if complexity_filters:
+        query = query.filter(AIAnalysis.complexity_score.in_(complexity_filters))
+    
+    if niche_filters:
+        query = query.filter(AIAnalysis.niche.in_(niche_filters))
+        
+    projects = query.all()
     return render_template('listings.html', projects=projects)
 
 @bp.route('/lab/<int:project_id>')
@@ -34,6 +45,11 @@ def product_detail(project_id):
     project = Project.query.get_or_404(project_id)
     if not project.ai_analysis:
         analysis = analyze_project(project.description, project.tech_stack or '')
+        
+        # Sync AI tags back to project tech_stack if empty
+        if not project.tech_stack or len(project.tech_stack) < 3:
+            project.tech_stack = analysis["tags"]
+            
         new_analysis = AIAnalysis(
             project_id=project.id,
             tags=analysis["tags"],
@@ -41,6 +57,8 @@ def product_detail(project_id):
             niche=analysis["niche"],
             potential_star=analysis["potential_star"],
             health_score=analysis["health_score"],
+            health_breakdown=analysis["health_breakdown"],
+            revenue_estimate=analysis["revenue_estimate"],
             insight_comment=analysis["insight_comment"],
             suggestion=analysis["suggestion"]
         )
@@ -201,6 +219,11 @@ def new_listing():
                 # Run AI analysis
                 try:
                     analysis_result = analyze_project(description, tech_stack)
+                    
+                    # Sync AI tags back to project tech_stack for the Orbit visualization if empty
+                    if not tech_stack or len(tech_stack) < 3:
+                        project.tech_stack = analysis_result["tags"]
+                    
                     ai = AIAnalysis(
                         project_id=project.id,
                         tags=analysis_result["tags"],
@@ -208,6 +231,8 @@ def new_listing():
                         niche=analysis_result["niche"],
                         potential_star=analysis_result["potential_star"],
                         health_score=analysis_result["health_score"],
+                        health_breakdown=analysis_result["health_breakdown"],
+                        revenue_estimate=analysis_result["revenue_estimate"],
                         insight_comment=analysis_result["insight_comment"],
                         suggestion=analysis_result["suggestion"]
                     )
@@ -328,3 +353,34 @@ def api_analyze(project_id):
         "message": "Analysis Complete",
         "health_score": project.ai_analysis.health_score if project.ai_analysis else 0
     })
+
+@bp.route('/api/track/click', methods=['POST'])
+def api_track_click():
+    data = request.get_json()
+    project_id = data.get('project_id')
+    if project_id:
+        project = Project.query.get(project_id)
+        if project:
+            if not project.analytics:
+                project.analytics = Analytics(project_id=project.id, clicks=1)
+            else:
+                project.analytics.clicks += 1
+            db.session.commit()
+            return jsonify({"success": True})
+@bp.route('/api/track/heatmap', methods=['POST'])
+def api_track_heatmap():
+    data = request.get_json()
+    project_id = data.get('project_id')
+    section = data.get('section')
+    if project_id and section:
+        project = Project.query.get(project_id)
+        if project:
+            if not project.analytics:
+                project.analytics = Analytics(project_id=project.id)
+            
+            heatmap = json.loads(project.analytics.heatmap_data or "{}")
+            heatmap[section] = heatmap.get(section, 0) + 1
+            project.analytics.heatmap_data = json.dumps(heatmap)
+            db.session.commit()
+            return jsonify({"success": True})
+    return jsonify({"success": False}), 400

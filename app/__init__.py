@@ -12,6 +12,11 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    import json
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        return json.loads(value) if value else {}
+
     db.init_app(app)
     login_manager.init_app(app)
 

@@ -91,6 +91,7 @@
                                 <th class="px-4 py-4">Complexity</th>
                                 <th class="px-4 py-4">Stars</th>
                                 <th class="px-4 py-4">Views</th>
+                                <th class="px-4 py-4">Clicks</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,6 +135,21 @@
                                         class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider {% if c == 'Advanced' %}bg-red-500/20 text-red-300 border border-red-500/30{% elif c == 'Intermediate' %}bg-amber-500/20 text-amber-300 border border-amber-500/30{% else %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% endif %}">
                                         {{ c }}
                                     </span>
+                                    <div class="flex items-center space-x-2 mt-2">
+                                        <div class="text-white font-bold">{{ project.ai_analysis.health_score if
+                                            project.ai_analysis else 0 }}%</div>
+                                        {% if project.ai_analysis and project.ai_analysis.health_breakdown %}
+                                        {% set bd = project.ai_analysis.health_breakdown|from_json %}
+                                        <div class="flex space-x-0.5">
+                                            <div class="w-1.5 h-3 bg-cyan-500 rounded-sm"
+                                                style="opacity: {{ bd.documentation / 100 }}"></div>
+                                            <div class="w-1.5 h-3 bg-indigo-500 rounded-sm"
+                                                style="opacity: {{ bd.stack_modernity / 100 }}"></div>
+                                            <div class="w-1.5 h-3 bg-purple-500 rounded-sm"
+                                                style="opacity: {{ bd.complexity_depth / 100 }}"></div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-4">
                                     <span class="text-amber-400 text-sm">
@@ -144,6 +160,8 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 text-slate-400 text-sm font-mono">{{ project.analytics.views if
+                                    project.analytics else 0 }}</td>
+                                <td class="px-4 py-4 text-slate-400 text-sm font-mono">{{ project.analytics.clicks if
                                     project.analytics else 0 }}</td>
                             </tr>
                             {% endfor %}
