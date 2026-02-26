@@ -146,87 +146,86 @@ def new_listing():
         if error:
             flash(error, 'danger')
         else:
-        try:
-            # If GitHub URL provided, fetch and enrich description
-            if github_url:
-                repo_data = fetch_github_repo_data(github_url)
-                if repo_data:
-                    auto_desc = generate_description_from_github(repo_data)
-                    if not description:
-                        description = auto_desc
-                    else:
-                        description = description + "\n\n--- AI Generated from GitHub ---\n" + auto_desc
-                    
-                    # Auto-fill tech stack from languages
-                    if not tech_stack and repo_data.get('languages'):
-                        tech_stack = ', '.join(repo_data['languages'])
-                    elif repo_data.get('languages'):
-                        existing = set(t.strip().lower() for t in tech_stack.split(','))
-                        for lang in repo_data['languages']:
-                            if lang.lower() not in existing:
-                                tech_stack += f', {lang}'
-                    
-                    if not title or title == '':
-                        title = repo_data.get('repo_name', 'Untitled Project').replace('-', ' ').title()
-                else:
-                    flash('GitHub repo erişilemedi, ancak proje manuel bilgilerle oluşturuldu.', 'info')
-            
-            if not description:
-                description = 'Açıklama eklenmedi.'
-            
-            # Handle image uploads
-            image_filenames = []
-            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
-            os.makedirs(upload_dir, exist_ok=True)
-            
-            files = request.files.getlist('images')
-            for f in files:
-                if f and f.filename and allowed_file(f.filename):
-                    fname = secure_filename(f'{current_user.id}_{int(time.time())}_{f.filename}')
-                    f.save(os.path.join(upload_dir, fname))
-                    image_filenames.append(fname)
-            
-            project = Project(
-                title=title,
-                description=description,
-                tech_stack=tech_stack,
-                price=price,
-                user_id=current_user.id,
-                github_url=github_url if github_url else None,
-                images=','.join(image_filenames) if image_filenames else None
-            )
-            db.session.add(project)
-            db.session.flush()
-            
-            # Run AI analysis
             try:
-                analysis_result = analyze_project(description, tech_stack)
-                ai = AIAnalysis(
-                    project_id=project.id,
-                    tags=analysis_result["tags"],
-                    complexity_score=analysis_result["complexity_score"],
-                    niche=analysis_result["niche"],
-                    potential_star=analysis_result["potential_star"],
-                    health_score=analysis_result["health_score"],
-                    insight_comment=analysis_result["insight_comment"],
-                    suggestion=analysis_result["suggestion"]
+                # If GitHub URL provided, fetch and enrich description
+                if github_url:
+                    repo_data = fetch_github_repo_data(github_url)
+                    if repo_data:
+                        auto_desc = generate_description_from_github(repo_data)
+                        if not description:
+                            description = auto_desc
+                        else:
+                            description = description + "\n\n--- AI Generated from GitHub ---\n" + auto_desc
+                        
+                        # Auto-fill tech stack from languages
+                        if not tech_stack and repo_data.get('languages'):
+                            tech_stack = ', '.join(repo_data['languages'])
+                        elif repo_data.get('languages'):
+                            existing = set(t.strip().lower() for t in tech_stack.split(','))
+                            for lang in repo_data['languages']:
+                                if lang.lower() not in existing:
+                                    tech_stack += f', {lang}'
+                        
+                        if not title or title == '':
+                            title = repo_data.get('repo_name', 'Untitled Project').replace('-', ' ').title()
+                    else:
+                        flash('GitHub repo erişilemedi, ancak proje manuel bilgilerle oluşturuldu.', 'info')
+                
+                if not description:
+                    description = 'Açıklama eklenmedi.'
+                
+                # Handle image uploads
+                image_filenames = []
+                upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                files = request.files.getlist('images')
+                for f in files:
+                    if f and f.filename and allowed_file(f.filename):
+                        fname = secure_filename(f'{current_user.id}_{int(time.time())}_{f.filename}')
+                        f.save(os.path.join(upload_dir, fname))
+                        image_filenames.append(fname)
+                
+                project = Project(
+                    title=title,
+                    description=description,
+                    tech_stack=tech_stack,
+                    price=price,
+                    user_id=current_user.id,
+                    github_url=github_url if github_url else None,
+                    images=','.join(image_filenames) if image_filenames else None
                 )
-                db.session.add(ai)
-            except Exception as ai_err:
-                current_app.logger.error(f"AI Analysis Error: {ai_err}")
-                # AI fails but we still want the project saved
-            
-            analytics = Analytics(project_id=project.id, views=0)
-            db.session.add(analytics)
-            db.session.commit()
-            
-            flash('Projeniz başarıyla yüklendi! 🧠', 'success')
-            return redirect(url_for('main.cockpit'))
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Listing Error: {e}")
-            flash(f"Bir hata oluştu: {str(e)}", 'danger')
-            return redirect(url_for('main.new_listing'))
+                db.session.add(project)
+                db.session.flush()
+                
+                # Run AI analysis
+                try:
+                    analysis_result = analyze_project(description, tech_stack)
+                    ai = AIAnalysis(
+                        project_id=project.id,
+                        tags=analysis_result["tags"],
+                        complexity_score=analysis_result["complexity_score"],
+                        niche=analysis_result["niche"],
+                        potential_star=analysis_result["potential_star"],
+                        health_score=analysis_result["health_score"],
+                        insight_comment=analysis_result["insight_comment"],
+                        suggestion=analysis_result["suggestion"]
+                    )
+                    db.session.add(ai)
+                except Exception as ai_err:
+                    current_app.logger.error(f"AI Analysis Error: {ai_err}")
+                
+                analytics = Analytics(project_id=project.id, views=0)
+                db.session.add(analytics)
+                db.session.commit()
+                
+                flash('Projeniz başarıyla yüklendi! 🧠', 'success')
+                return redirect(url_for('main.cockpit'))
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Listing Error: {e}")
+                flash(f"Bir hata oluştu: {str(e)}", 'danger')
+                return redirect(url_for('main.new_listing'))
     
     return render_template('new_listing.html')
 
