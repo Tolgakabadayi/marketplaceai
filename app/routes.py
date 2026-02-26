@@ -146,6 +146,7 @@ def new_listing():
         if error:
             flash(error, 'danger')
         else:
+        try:
             # If GitHub URL provided, fetch and enrich description
             if github_url:
                 repo_data = fetch_github_repo_data(github_url)
@@ -198,24 +199,34 @@ def new_listing():
             db.session.flush()
             
             # Run AI analysis
-            analysis_result = analyze_project(description, tech_stack)
-            ai = AIAnalysis(
-                project_id=project.id,
-                tags=analysis_result["tags"],
-                complexity_score=analysis_result["complexity_score"],
-                niche=analysis_result["niche"],
-                potential_star=analysis_result["potential_star"],
-                health_score=analysis_result["health_score"],
-                insight_comment=analysis_result["insight_comment"],
-                suggestion=analysis_result["suggestion"]
-            )
-            db.session.add(ai)
+            try:
+                analysis_result = analyze_project(description, tech_stack)
+                ai = AIAnalysis(
+                    project_id=project.id,
+                    tags=analysis_result["tags"],
+                    complexity_score=analysis_result["complexity_score"],
+                    niche=analysis_result["niche"],
+                    potential_star=analysis_result["potential_star"],
+                    health_score=analysis_result["health_score"],
+                    insight_comment=analysis_result["insight_comment"],
+                    suggestion=analysis_result["suggestion"]
+                )
+                db.session.add(ai)
+            except Exception as ai_err:
+                current_app.logger.error(f"AI Analysis Error: {ai_err}")
+                # AI fails but we still want the project saved
+            
             analytics = Analytics(project_id=project.id, views=0)
             db.session.add(analytics)
             db.session.commit()
             
-            flash('Projeniz başarıyla yüklendi ve AI tarafından analiz edildi! 🧠', 'success')
+            flash('Projeniz başarıyla yüklendi! 🧠', 'success')
             return redirect(url_for('main.cockpit'))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Listing Error: {e}")
+            flash(f"Bir hata oluştu: {str(e)}", 'danger')
+            return redirect(url_for('main.new_listing'))
     
     return render_template('new_listing.html')
 
