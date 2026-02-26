@@ -280,33 +280,42 @@ def mark_message_read(message_id):
 
 @bp.route('/api/chat', methods=['POST'])
 def ai_chat():
-    data = request.get_json()
-    user_query = data.get('message', '').strip() if data else ''
-    
-    if not user_query:
-        return jsonify({"reply": "Merhaba! Size nasıl yardımcı olabilirim? Aradığınız proje türünü anlatın.", "projects": []})
-    
-    projects = Project.query.all()
-    results = search_projects_by_query(user_query, projects)
-    
-    if results:
-        project_data = []
-        for proj, score in results:
-            project_data.append({
-                "id": proj.id,
-                "title": proj.title,
-                "niche": proj.ai_analysis.niche if proj.ai_analysis else "General",
-                "stars": proj.ai_analysis.potential_star if proj.ai_analysis else 1,
-                "price": proj.price,
-                "url": url_for('main.product_detail', project_id=proj.id)
-            })
+    try:
+        data = request.get_json()
+        user_query = data.get('message', '').strip() if data else ''
         
-        reply = f"Aramanızla eşleşen {len(project_data)} proje buldum! İşte en uygun sonuçlar:"
-    else:
-        project_data = []
-        reply = "Maalesef aramanızla eşleşen bir proje bulamadım. Farklı kelimelerle tekrar deneyin veya daha genel tanımlayın."
-    
-    return jsonify({"reply": reply, "projects": project_data})
+        if not user_query:
+            return jsonify({"reply": "Merhaba! Size nasıl yardımcı olabilirim? Aradığınız proje türünü anlatın.", "projects": []})
+        
+        projects = Project.query.all()
+        # search_projects_by_query uses TextBlob which needs NLTK data
+        results = search_projects_by_query(user_query, projects)
+        
+        if results:
+            project_data = []
+            for proj, score in results:
+                project_data.append({
+                    "id": proj.id,
+                    "title": proj.title,
+                    "niche": proj.ai_analysis.niche if proj.ai_analysis else "General",
+                    "stars": proj.ai_analysis.potential_star if proj.ai_analysis else 1,
+                    "price": proj.price,
+                    "url": url_for('main.product_detail', project_id=proj.id)
+                })
+            
+            reply = f"Aramanızla eşleşen {len(project_data)} proje buldum! İşte en uygun sonuçlar:"
+        else:
+            project_data = []
+            reply = "Maalesef aramanızla eşleşen bir proje bulamadım. Farklı kelimelerle tekrar deneyin veya daha genel tanımlayın."
+        
+        return jsonify({"reply": reply, "projects": project_data})
+    except Exception as e:
+        current_app.logger.error(f"Chat Error: {e}")
+        return jsonify({
+            "reply": f"Üzgünüm, AI motorunda bir hata oluştu: {str(e)}", 
+            "projects": [],
+            "error": True
+        }), 200 # Return 200 so the UI can show the error gracefully
 
 # ──────────────────── API ────────────────────
 

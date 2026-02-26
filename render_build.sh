@@ -8,7 +8,7 @@ python --version
 # Install dependencies
 pip install -r requirements.txt
 
-# Download TextBlob/NLTK corpora for AI analysis
-export NLTK_DATA=/opt/render/nltk_data
+# Download TextBlob/NLTK corpora for AI analysis to a local directory
+export NLTK_DATA=./nltk_data
 python -m textblob.download_corpora
-python -c "import nltk; nltk.download('punkt_tab', download_dir='/opt/render/nltk_data')"
+python -c "import nltk; nltk.download('punkt_tab', download_dir='./nltk_data')"

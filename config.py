@@ -13,8 +13,9 @@ class Config:
         
     SQLALCHEMY_DATABASE_URI = db_url or \
         'sqlite:///' + os.path.join(basedir, 'app.db')
-    # Render NLTK Data Path
-    if os.environ.get('RENDER'):
-        import nltk
-        nltk.data.path.append('/opt/render/nltk_data')
+    # NLTK Data Path (Local to project)
+    import nltk
+    nltk_data_path = os.path.join(basedir, 'nltk_data')
+    if os.path.exists(nltk_data_path):
+        nltk.data.path.append(nltk_data_path)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
