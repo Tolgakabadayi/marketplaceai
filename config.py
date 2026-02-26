@@ -15,7 +15,8 @@ class Config:
         'sqlite:///' + os.path.join(basedir, 'app.db')
     # NLTK Data Path (Local to project)
     import nltk
-    nltk_data_path = os.path.join(basedir, 'nltk_data')
+    nltk_data_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'nltk_data')
     if os.path.exists(nltk_data_path):
-        nltk.data.path.append(nltk_data_path)
+        if nltk_data_path not in nltk.data.path:
+            nltk.data.path.append(nltk_data_path)
     SQLALCHEMY_TRACK_MODIFICATIONS = False

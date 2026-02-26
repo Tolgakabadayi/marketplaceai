@@ -9,6 +9,7 @@ python --version
 pip install -r requirements.txt
 
 # Download TextBlob/NLTK corpora for AI analysis to a local directory
-export NLTK_DATA=./nltk_data
+mkdir -p ./nltk_data
+export NLTK_DATA=$(pwd)/nltk_data
 python -m textblob.download_corpora
 python -c "import nltk; nltk.download('punkt_tab', download_dir='./nltk_data')"
