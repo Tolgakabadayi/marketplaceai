@@ -35,8 +35,8 @@ NICHES = {
 
 def fetch_github_repo_data(github_url):
     """
-    Fetch public GitHub repo data (README + languages) via GitHub API.
-    Returns a dict with 'readme', 'languages', 'description', 'stars'.
+    Fetch public GitHub repo data (README, languages, file tree) via GitHub API.
+    Does deep structure analysis to find entry points and architecture.
     """
     import os
     token = os.environ.get('GITHUB_TOKEN')
@@ -45,36 +45,89 @@ def fetch_github_repo_data(github_url):
         headers['Authorization'] = f'token {token}'
 
     try:
-        # Improved regex to handle trailing slashes and common variants
         match = re.search(r'github\.com/([^/]+)/([^/\s?#]+)', github_url)
         if not match:
             return None
         owner, repo = match.group(1), match.group(2).rstrip('.git').rstrip('/')
         
-        result = {'readme': '', 'languages': [], 'description': '', 'stars': 0, 'repo_name': repo}
+        result = {
+            'readme': '', 
+            'languages': [], 
+            'description': '', 
+            'stars': 0, 
+            'repo_name': repo,
+            'file_tree': [],
+            'entry_points': [],
+            'configs': {}
+        }
 
-        # Fetch repo info - THIS IS MANDATORY for success
+        # 1. Fetch Basic Repo Info & Default Branch
+        default_branch = 'main'
         try:
             req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}', headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
                 result['description'] = data.get('description', '') or ''
                 result['stars'] = data.get('stargazers_count', 0)
+                default_branch = data.get('default_branch', 'main')
         except Exception:
-            # If we can't get basic info, the URL might be wrong or we are hard rate-limited
             return None
 
-        # Fetch README
+        # 2. Fetch Recursive Git Tree
+        try:
+            req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1', headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                tree_data = json.loads(resp.read().decode())
+                # Capture first 200 files for architectural analysis
+                result['file_tree'] = [f['path'] for f in tree_data.get('tree', []) if f['type'] == 'blob'][:200]
+                
+                # Detect structural patterns
+                paths_str = " ".join(result['file_tree']).lower()
+                if "src/" in paths_str: result['structure'] = "Standard Source Layout"
+                elif "app/" in paths_str: result['structure'] = "App-centric Layout"
+                
+                # Detect entry points
+                potential_entries = ["app.py", "main.py", "index.js", "main.js", "index.php", "run.py", "server.js"]
+                for p in result['file_tree']:
+                    fname = p.split('/')[-1]
+                    if fname in potential_entries:
+                        result['entry_points'].append(p)
+        except Exception:
+            pass
+
+        # 3. Fetch Config Files for Deep Tech Analysis
+        config_files = {
+            'package.json': 'json',
+            'requirements.txt': 'text',
+            'composer.json': 'json',
+            'docker-compose.yml': 'text',
+            'app.py': 'text',
+            'main.py': 'text'
+        }
+        for path in result['file_tree']:
+            fname = path.split('/')[-1]
+            if fname in config_files:
+                try:
+                    req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={default_branch}', headers=headers)
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        content_data = json.loads(resp.read().decode())
+                        if content_data.get('content'):
+                            import base64
+                            raw_content = base64.b64decode(content_data['content']).decode('utf-8', errors='ignore')
+                            result['configs'][fname] = raw_content[:2000] # store snippet
+                except Exception:
+                    pass
+
+        # 4. Fetch README
         try:
             req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/readme', 
                                          headers={**headers, 'Accept': 'application/vnd.github.v3.raw'})
             with urllib.request.urlopen(req, timeout=10) as resp:
-                readme_text = resp.read().decode('utf-8', errors='ignore')
-                result['readme'] = readme_text[:5000] # Increased limit
+                result['readme'] = resp.read().decode('utf-8', errors='ignore')[:5000]
         except Exception:
             pass
 
-        # Fetch languages
+        # 5. Fetch Languages
         try:
             req = urllib.request.Request(f'https://api.github.com/repos/{owner}/{repo}/languages', headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -90,41 +143,84 @@ def fetch_github_repo_data(github_url):
 
 def generate_description_from_github(repo_data):
     """
-    Use fetched GitHub data to auto-generate a rich project description.
+    Synthesize a deep "Autonomous Project Review" based on files and content.
+    Works even if README is totally missing.
     """
     parts = []
     
+    # 1. Project Identity
     if repo_data.get('description'):
-        parts.append(f"### Short Description\n{repo_data['description']}")
+        parts.append(f"### 🎯 Project Mission\n{repo_data['description']}")
     
-    if repo_data.get('readme'):
-        # Clean markdown syntax for a cleaner description
-        readme = repo_data['readme']
-        readme = re.sub(r'#+\s*', '', readme)   # Remove markdown headers
-        readme = re.sub(r'\*\*|__', '', readme)  # Remove bold
-        readme = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', readme)  # Links to text
-        readme = re.sub(r'```[\s\S]*?```', '', readme)  # Remove code blocks
-        readme = re.sub(r'`[^`]+`', '', readme)  # Remove inline code
-        readme = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', readme)  # Remove images
-        readme = re.sub(r'\n{3,}', '\n\n', readme)  # Reduce whitespace
+    # 2. Structural & Architectural Discovery
+    tree = repo_data.get('file_tree', [])
+    if tree:
+        arch_type = "Modern Modular"
+        if any("docker" in p.lower() for p in tree): arch_type += " (Containerized)"
+        if any("test" in p.lower() or "spec" in p.lower() for p in tree): arch_type += " (Tested Architecture)"
         
-        # Take the first meaningful paragraphs
-        paragraphs = [p.strip() for p in readme.split('\n\n') if len(p.strip()) > 30]
-        summary = '\n\n'.join(paragraphs[:4])[:1500]
-        if summary:
-            parts.append(f"### Project Overview\n{summary}")
+        parts.append(f"### 📂 Functional Architecture\n- **Architecture Style**: {arch_type}")
+        parts.append(f"- **Directory Layout**: {repo_data.get('structure', 'Self-contained structure')}")
+        
+        # Identify core modules
+        folders = set()
+        for p in tree:
+            if '/' in p: 
+                folder = p.split('/')[0]
+                if folder not in ['node_modules', '.git', 'vendor', '__pycache__']:
+                    folders.add(folder)
+        if folders:
+            parts.append(f"- **Key Components Detected**: `{', '.join(list(folders)[:8])}`")
+
+    # 3. Deep "How It Works" Synthesis
+    configs = repo_data.get('configs', {})
+    how_it_works = []
     
+    if configs.get('package.json'):
+        how_it_works.append("This appears to be a Node.js/Web application. It uses npm/yarn for dependency management.")
+    if configs.get('requirements.txt') or configs.get('app.py'):
+        how_it_works.append("Based on the code footprint, this is a Python-powered back-end or CLI tool.")
+    
+    if repo_data.get('entry_points'):
+        how_it_works.append(f"The execution flow starts at `{repo_data['entry_points'][0]}`.")
+    
+    if how_it_works:
+        parts.append("### ⚙️ Operational Logic\n" + " ".join(how_it_works))
+
+    # 4. Content Synthesis (README Fallback)
+    if repo_data.get('readme'):
+        readme = repo_data['readme']
+        readme = re.sub(r'#+\s*', '', readme)
+        readme = re.sub(r'```[\s\S]*?```', '', readme)
+        paragraphs = [p.strip() for p in readme.split('\n\n') if len(p.strip()) > 40]
+        if paragraphs:
+            summary_text = '\n\n'.join(paragraphs[:3])[:1000]
+            parts.append(f"### 📖 Discovery Insights\n{summary_text}")
+    elif tree:
+        # Deep tree-based descriptive fallback
+        core_tech = repo_data['languages'][0] if repo_data.get('languages') else "modern libraries"
+        logic_brief = "standalone utility"
+        if any("api" in p.lower() for p in tree): logic_brief = "RESTful API / Service"
+        elif any("web" in p.lower() or "public" in p.lower() for p in tree): logic_brief = "Web Application"
+        
+        parts.append(f"### 📖 Automated Project Profiling\nREADME bulunamadı; ancak projenin `{len(tree)}` aktif dosyası incelendiğinde, bu projenin bir **{logic_brief}** olduğu ve temelinde **{core_tech}** kullandığı anlaşılmaktadır.")
+        
+        # Categorize folders for the "How it Works" section
+        key_dirs = sorted(list(folders))[:5]
+        if key_dirs:
+            parts.append(f"Proje mimarisi `{', '.join(key_dirs)}` klasörleri etrafında şekilleniyor, bu da modüler ve genişletilebilir bir yapı olduğunu gösteriyor.")
+
+    # 5. Technical DNA
     tech_info = []
     if repo_data.get('languages'):
-        tech_info.append(f"Built with: {', '.join(repo_data['languages'])}")
-    
-    if repo_data.get('stars') and repo_data['stars'] > 0:
-        tech_info.append(f"GitHub Stars: {repo_data['stars']}")
-    
+        tech_info.append(f"**Primary Languages**: {', '.join(repo_data['languages'])}")
+    if repo_data.get('stars'):
+        tech_info.append(f"**Reliability Signal**: {repo_data['stars']} GitHub Stars")
+        
     if tech_info:
-        parts.append("### Technical Specs\n" + "\n".join(tech_info))
+        parts.append("### 🛠️ Technical Ecosystem\n" + "\n".join([f"- {i}" for i in tech_info]))
     
-    return '\n\n'.join(parts) if parts else "GitHub repository successfully linked."
+    return '\n\n'.join(parts) if parts else "GitHub data processed successfully."
 
 
 # ─────────── Core Analysis Functions ───────────
@@ -289,24 +385,36 @@ def search_projects_by_query(query, projects):
         score = 0
         text = f"{project.title} {project.description} {project.tech_stack or ''}".lower()
         
-        # Direct keyword matching
+        # 1. Direct keyword matching
         for word in query_keywords:
             if len(word) > 2 and word in text:
-                score += 3
+                score += 4 # increased
         
-        # Noun phrase matching (higher weight)
+        # 2. Noun phrase matching (higher weight)
         for phrase in query_nouns:
             if phrase in text:
-                score += 5
+                score += 8 # increased
         
-        # Niche matching from AI analysis
+        # 3. AI Analysis metadata matching (Deep Search)
         if project.ai_analysis:
-            analysis_text = f"{project.ai_analysis.tags or ''} {project.ai_analysis.niche or ''} {project.ai_analysis.insight_comment or ''}".lower()
+            analysis_text = f"{project.ai_analysis.tags or ''} {project.ai_analysis.niche or ''} {project.ai_analysis.insight_comment or ''} {project.ai_analysis.suggestion or ''}".lower()
             for word in query_keywords:
                 if len(word) > 2 and word in analysis_text:
-                    score += 2
+                    score += 5 # High weight for AI identified tags
+            
+            # Semantic boost for specific niches
+            niche = (project.ai_analysis.niche or '').lower()
+            for query_word in query_keywords:
+                if query_word in niche:
+                    score += 10 # Massive boost if niche matches a keyword
         
         if score > 0:
+            # Complexity/Health boost (quality preference)
+            if project.ai_analysis:
+                if project.ai_analysis.complexity_score == "Advanced":
+                    score += 5
+                score += (project.ai_analysis.health_score / 20)
+            
             scored.append((project, score))
     
     # Sort by score descending
