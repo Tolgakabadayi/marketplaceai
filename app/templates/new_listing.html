@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Proje Yükle | MarketplaceAI.shop{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl mx-auto mt-12 mb-20 px-4">
+
+    <div class="glass-panel p-8 md:p-10 rounded-2xl">
+        <div class="flex items-center space-x-4 mb-8 pb-6 border-b border-slate-700/50">
+            <div
+                class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-400 to-indigo-400 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-slate-950" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                        clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-extrabold text-white">Yeni Proje Yükle</h1>
+                <p class="text-slate-400 text-sm">GitHub linki verin veya manuel tanımlayın — AI her şeyi analiz edecek.
+                </p>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="mb-6 p-3 rounded-lg text-sm font-medium
+            {% if category == 'danger' %}bg-red-500/20 text-red-300 border border-red-500/30
+            {% elif category == 'success' %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+            {% else %}bg-cyan-500/20 text-cyan-300 border border-cyan-500/30{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <!-- GitHub URL -->
+            <div class="glass-panel p-5 rounded-xl border border-indigo-400/30">
+                <label class="block text-sm font-semibold text-indigo-400 mb-2">🔗 GitHub Repository URL
+                    (Opsiyonel)</label>
+                <input type="url" name="github_url"
+                    class="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="https://github.com/username/repo">
+                <p class="text-xs text-slate-500 mt-2">💡 Link verirseniz AI, README'yi ve kullanılan dilleri otomatik
+                    çekip açıklamayı oluşturur. Açıklama alanını boş bırakabilirsiniz.</p>
+            </div>
+
+            <!-- Title -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Proje Başlığı <span
+                        class="text-red-400">*</span></label>
+                <input type="text" name="title" required
+                    class="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                    placeholder="Örn: AI-Powered CRM Dashboard">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Açıklama <span
+                        class="text-slate-500">(GitHub varsa otomatik doldurulur)</span></label>
+                <textarea name="description" rows="5"
+                    class="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-y"
+                    placeholder="Projenizi detaylı anlatın... veya GitHub linkini verin, AI otomatik yazacak."></textarea>
+            </div>
+
+            <!-- Tech Stack -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Teknoloji Stack'i <span
+                        class="text-slate-500">(GitHub'dan otomatik algılanır)</span></label>
+                <input type="text" name="tech_stack"
+                    class="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Örn: React, Node.js, PostgreSQL, Docker">
+            </div>
+
+            <!-- Price -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Fiyat (USD)</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
+                    <input type="number" name="price" min="0" step="0.01" value="0"
+                        class="w-full pl-8 pr-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+
+            <!-- Image Uploads -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">📸 Proje Görselleri</label>
+                <div
+                    class="glass-panel p-4 rounded-xl border border-dashed border-slate-600 text-center hover:border-cyan-400/50 transition-colors cursor-pointer relative">
+                    <input type="file" name="images" multiple accept="image/*"
+                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" id="image-input"
+                        onchange="previewImages(this)">
+                    <svg class="w-10 h-10 mx-auto text-slate-500 mb-2" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <p class="text-sm text-slate-400">Görselleri sürükleyin veya tıklayın</p>
+                    <p class="text-xs text-slate-600 mt-1">PNG, JPG, WEBP • Birden fazla dosya seçebilirsiniz</p>
+                </div>
+                <div id="image-preview" class="flex flex-wrap gap-2 mt-3"></div>
+            </div>
+
+            <!-- AI Info -->
+            <div class="glass-panel p-4 rounded-xl border border-cyan-400/20 flex items-start space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z">
+                        </path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-cyan-400 font-semibold text-sm">AI Otomatik Analiz</p>
+                    <p class="text-slate-400 text-xs mt-1">GitHub repo'nuzun README'si ve dilleri otomatik çekilir. AI,
+                        etiketler, karmaşıklık skoru ve pazar potansiyeli üretir. Alıcılar GitHub linkinizi göremez.</p>
+                </div>
+            </div>
+
+            <div class="flex space-x-4 pt-2">
+                <button type="submit"
+                    class="flex-1 py-3.5 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity text-lg neon-shadow-cyan">
+                    🚀 Yükle & Analiz Et
+                </button>
+                <a href="{{ url_for('main.cockpit') }}"
+                    class="px-6 py-3.5 glass-panel text-slate-300 font-semibold rounded-xl hover:bg-white/10 transition-colors border border-slate-600 text-center">
+                    İptal
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function previewImages(input) {
+        const preview = document.getElementById('image-preview');
+        preview.innerHTML = '';
+        if (input.files) {
+            Array.from(input.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const div = document.createElement('div');
+                    div.className = 'w-20 h-20 rounded-lg overflow-hidden border border-slate-700';
+                    div.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+</script>
+{% endblock %}

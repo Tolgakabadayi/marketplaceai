@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: marketplace-ai-shop
+    env: python
+    buildCommand: "./render_build.sh"
+    startCommand: "python -c \"from app import create_app, db; app=create_app(); app.app_context().push(); db.create_all()\" && gunicorn run:app"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marketplace-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+databases:
+  - name: marketplace-db
+    plan: free

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MarketplaceAI.shop - The Self-Sovereign AI Marketplace{% endblock %}</title>
+
+    <!-- TailwindCSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Flowbite via CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            950: '#020617',
+                        },
+                        cyan: {
+                            400: '#22d3ee',
+                        },
+                        indigo: {
+                            400: '#818cf8',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+        body {
+            background-color: #020617;
+            /* Slate 950 */
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4);
+            /* Slate 800 with opacity */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+        }
+
+        /* Neon Shadows */
+        .neon-shadow-cyan {
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+            transition: box-shadow 0.3s ease-in-out;
+        }
+
+        .neon-shadow-cyan:hover {
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.5);
+        }
+
+        .neon-shadow-indigo {
+            box-shadow: 0 0 15px rgba(129, 140, 248, 0.2);
+            transition: box-shadow 0.3s ease-in-out;
+        }
+
+        .neon-shadow-indigo:hover {
+            box-shadow: 0 0 25px rgba(129, 140, 248, 0.5);
+        }
+
+        /* AI Gradient Text */
+        .text-gradient-ai {
+            background: linear-gradient(to right, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Live Ticker Animation */
+        @keyframes ticker {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            100% {
+                transform: translate3d(-50%, 0, 0);
+            }
+        }
+
+        .ticker-wrap {
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .ticker-content {
+            display: inline-block;
+            animation: ticker 25s linear infinite;
+        }
+
+        /* Particle canvas positioning */
+        #particles-js {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body class="antialiased font-sans relative">
+
+    <!-- Live Analytics Ticker -->
+    <div
+        class="w-full bg-slate-900 border-b border-indigo-400/20 py-2 ticker-wrap flex items-center shadow-lg relative z-20">
+        <div class="ticker-content flex space-x-12 text-sm text-cyan-400/80 font-semibold tracking-widest pl-full">
+            <span>🔴 LIVE: AI Engine Active</span>
+            <span>⚡ {{ total_projects if total_projects else 0 }} Assets Currently Validated</span>
+            <span>🔒 API-Free Local Processing</span>
+            <span>🧠 100% Data Privacy</span>
+            <span>🔴 LIVE: AI Engine Active</span>
+            <span>⚡ {{ total_projects if total_projects else 0 }} Assets Currently Validated</span>
+            <span>🔒 API-Free Local Processing</span>
+            <span>🧠 100% Data Privacy</span>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="glass-panel mx-4 mt-6 px-6 py-4 flex justify-between items-center sticky top-4 z-50">
+        <a href="/" class="flex items-center space-x-3 group">
+            <div
+                class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-400 flex items-center justify-center animate-pulse-slow">
+                <svg class="w-5 h-5 text-slate-950" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                        d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z">
+                    </path>
+                </svg>
+            </div>
+            <span
+                class="text-xl font-bold tracking-tight text-white group-hover:text-cyan-400 transition-colors">MarketplaceAI<span
+                    class="text-indigo-400">.shop</span></span>
+        </a>
+        <div class="hidden md:flex items-center space-x-8">
+            <a href="/listings"
+                class="text-sm font-semibold text-slate-300 hover:text-cyan-400 transition-colors">Browse Projects</a>
+            {% if current_user.is_authenticated %}
+            <a href="/cockpit" class="text-sm font-semibold text-slate-300 hover:text-indigo-400 transition-colors">The
+                Cockpit</a>
+            {% endif %}
+        </div>
+        <div class="flex items-center space-x-3">
+            {% if current_user.is_authenticated %}
+            <a href="/cockpit/new"
+                class="px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold text-sm hover:opacity-90 transition-opacity neon-shadow-cyan">+
+                Yeni Proje</a>
+            <div
+                class="hidden md:flex items-center space-x-2 glass-panel px-3 py-1.5 rounded-full border border-indigo-400/30">
+                <div
+                    class="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-400 flex items-center justify-center text-[10px] font-bold text-slate-950">
+                    {{ current_user.username[0]|upper }}</div>
+                <span class="text-sm text-slate-300 font-medium">{{ current_user.username }}</span>
+            </div>
+            <a href="/logout" class="text-sm text-slate-400 hover:text-red-400 transition-colors font-medium">Çıkış</a>
+            {% else %}
+            <a href="/login"
+                class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-cyan-400 transition-colors">Giriş</a>
+            <a href="/register"
+                class="px-5 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 border border-white/20 transition-all neon-shadow-cyan">Kayıt
+                Ol</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col items-center w-full px-4 relative z-10">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 py-12 mt-20 z-10 relative bg-slate-950/80 backdrop-blur-sm">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-slate-500 font-medium tracking-wide">MarketplaceAI.shop &copy; 2026</p>
+            <p class="text-slate-600 text-sm mt-3 flex items-center justify-center space-x-2">
+                <span>API-Free</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span>Self-Sovereign</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>
